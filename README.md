@@ -6,6 +6,9 @@
 ### Document Upload Page
 <img width="943" height="410" alt="Document_page" src="https://github.com/user-attachments/assets/3d900649-af0f-4a02-b7e1-3904cc4a4249" />
 
+### Chat Page
+<img width="1920" height="1069" alt="chat_page" src="https://github.com/user-attachments/assets/3eda08fc-a373-411e-bf24-c169f2c80596" />
+
 ### Summary Page
 <img width="1920" height="6537" alt="summay_page" src="https://github.com/user-attachments/assets/1349cae1-89d4-4604-8131-ce68f01df76e" />
 
