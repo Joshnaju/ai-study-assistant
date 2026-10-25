@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import api from "../../services/api";
 import "./Summary.css";
 import { Copy, Check } from "lucide-react";
+import { getDocuments } from "../../services/documentService";
 
 function Summary() {
   const [documents, setDocuments] = useState([]);
@@ -41,18 +42,11 @@ function Summary() {
     setError("");
 
     try {
-      const response = await api.get("documents/");
-      const data = Array.isArray(response.data)
-        ? response.data
-        : response.data.results || [];
+      const response = await getDocuments();
+
+      const data = Array.isArray(response) ? response : response.results || [];
 
       setDocuments(data);
-
-      const firstIndexed = data.find((document) => document.is_indexed);
-
-      if (firstIndexed) {
-        setSelectedDocumentId(String(firstIndexed.id));
-      }
     } catch (err) {
       setError(
         err.response?.data?.detail ||

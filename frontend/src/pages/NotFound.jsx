@@ -7,7 +7,7 @@ function NotFound() {
     const token = localStorage.getItem("access");
 
     if (token) {
-      navigate("/dashboard");
+      navigate("/home");
     } else {
       navigate("/login");
     }
@@ -20,12 +20,19 @@ function NotFound() {
     >
       <div className="text-center">
         <div className="mb-3">
-          <img
+          {/* <img
             src="/hospital.png"
             alt="AI Assistant Logo"
             width="80"
             height="80"
-          />
+          /> */}
+          <i
+            className="bi bi-mortarboard-fill d-inline-block text-primary-emphasis"
+            style={{
+              fontSize: "80px",
+              lineHeight: 1.2,
+            }}
+          ></i>
         </div>
 
         <h1 className="display-1 fw-bold text-primary-emphasis">404</h1>
@@ -45,7 +52,7 @@ function NotFound() {
           }}
           onClick={handleGoHome}
         >
-          Go to Dashboard
+          Go to Home
         </button>
       </div>
     </div>

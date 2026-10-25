@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./layout/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -10,6 +9,7 @@ import Chat from "./pages/Chat/Chat";
 import Documents from "./pages/Documents/Documents";
 import Summary from "./pages/Summary/Summary";
 import MCQ from "./pages/MCQ/MCQ";
+import Home from "./pages/Home/Home";
 
 function App() {
   return (
@@ -19,8 +19,8 @@ function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/summary" element={<Summary />} />

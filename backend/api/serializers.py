@@ -162,7 +162,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
         ]
         
 class ChatConversationSerializer(serializers.ModelSerializer):
-    messages = ChatMessageSerializer(many=True, read_only=True)
+    messages = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatConversation
@@ -173,7 +173,7 @@ class ChatConversationSerializer(serializers.ModelSerializer):
             "updated_at",
             "messages",
         ]
-        
+
         read_only_fields = [
             "id",
             "created_at",
@@ -181,3 +181,6 @@ class ChatConversationSerializer(serializers.ModelSerializer):
             "messages",
         ]
 
+    def get_messages(self, obj):
+        messages = obj.messages.order_by("created_at", "id")
+        return ChatMessageSerializer(messages, many=True).data

@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from pathlib import Path
 
-from api.rag.llm_service import generate_mcq_answer, generate_rag_answer
+from api.rag.llm_service import generate_mcq_answer, generate_rag_answer, rewrite_followup_query
 from .models import Document
 
 from .serializers import DocumentSerializer, LoginSerializer
@@ -216,6 +216,7 @@ class RAGSearchView(APIView):
         query = request.data.get("query", "")
         conversation_id = request.data.get("conversation_id")
 
+        # 1. Validate the question.
         if not isinstance(query, str) or not query.strip():
             return Response(
                 {"error": "Please enter a question."},
@@ -230,14 +231,14 @@ class RAGSearchView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # Get an existing conversation or create a new one.
+        # 2. Get an existing conversation or create a new one.
         if conversation_id:
             try:
                 conversation = ChatConversation.objects.get(
                     id=conversation_id,
                     owner=request.user,
                 )
-            except ChatConversation.DoesNotExist:
+            except (ChatConversation.DoesNotExist, ValueError, TypeError):
                 return Response(
                     {"error": "Conversation not found."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -248,26 +249,54 @@ class RAGSearchView(APIView):
                 title=query[:50],
             )
 
-        # Save the user's question.
-        ChatMessage.objects.create(
-            conversation=conversation,
-            role="user",
-            content=query,
-        )
-
         try:
-            chunks = search_relevant_chunks(
+            # 3. Retrieve recent conversation history BEFORE
+            # saving the current question.
+            previous_messages = list(
+                ChatMessage.objects.filter(
+                    conversation=conversation,
+                    role__in=["user", "assistant"],
+                )
+                .order_by("-created_at", "-id")[:10]
+            )
+
+            # Restore chronological order.
+            previous_messages.reverse()
+
+            conversation_history = [
+                {
+                    "role": message.role,
+                    "content": message.content,
+                }
+                for message in previous_messages
+            ]
+
+            # 4. Save the current question.
+            ChatMessage.objects.create(
+                conversation=conversation,
+                role="user",
+                content=query,
+            )
+            # 1. Rewrite the follow-up question using conversation history.
+            search_query = rewrite_followup_query(
                 query=query,
+                conversation_history=conversation_history,
+            )
+            # 2. Search ChromaDB using the rewritten question.
+            chunks = search_relevant_chunks(
+                query=search_query,
                 user_id=request.user.id,
                 n_results=4,
             )
 
+            # 3. Generate an answer to the original question.
             answer = generate_rag_answer(
                 query=query,
                 chunks=chunks,
+                conversation_history=conversation_history,
             )
 
-            # Prepare source information BEFORE saving the answer.
+            # 7. Prepare source information for the frontend.
             results = [
                 {
                     "text": chunk.get("text", ""),
@@ -280,7 +309,7 @@ class RAGSearchView(APIView):
                 for chunk in chunks
             ]
 
-            # Save the answer and its sources.
+            # 8. Save the assistant's answer and sources.
             ChatMessage.objects.create(
                 conversation=conversation,
                 role="assistant",
@@ -288,8 +317,10 @@ class RAGSearchView(APIView):
                 sources=results,
             )
 
+            # 9. Update the conversation timestamp.
             conversation.save(update_fields=["updated_at"])
 
+            # 10. Return the response expected by React.
             return Response(
                 {
                     "conversation_id": conversation.id,
@@ -306,7 +337,12 @@ class RAGSearchView(APIView):
                 "OpenAI API request failed"
             )
             return Response(
-                {"error": "The AI service could not generate an answer."},
+                {
+                    "error": (
+                        "The AI service could not generate an answer. "
+                        "Please try again."
+                    )
+                },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 

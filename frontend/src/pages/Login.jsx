@@ -65,7 +65,7 @@ function Login() {
       localStorage.setItem("user", JSON.stringify(response.user));
 
       // Continue to the study assistant page
-      navigate("/dashboard");
+      navigate("/home");
     } catch (err) {
       const data = err.response?.data;
 

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "./AppLayout.css";
 
 const navigationItems = [
-  { label: "Home", path: "/dashboard", icon: "bi-house-door-fill" },
+  { label: "Home", path: "/home", icon: "bi-house-door-fill" },
   { label: "My Documents", path: "/documents", icon: "bi-file-earmark-text" },
   { label: "Chat", path: "/chat", icon: "bi-chat-dots" },
   { label: "Summarize", path: "/summary", icon: "bi-card-text" },
