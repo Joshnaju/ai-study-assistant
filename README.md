@@ -9,3 +9,7 @@
 ### Summary Page
 <img width="1920" height="6537" alt="summay_page" src="https://github.com/user-attachments/assets/1349cae1-89d4-4604-8131-ce68f01df76e" />
 
+### MCQ Page
+<img width="1920" height="3262" alt="mcq_page1" src="https://github.com/user-attachments/assets/0e08848a-87f2-4983-b608-e713ca92120a" />
+<img width="1920" height="4191" alt="mcq_page2" src="https://github.com/user-attachments/assets/01a38c20-5e9e-4129-86bb-4abe7f2039da" />
+
