@@ -1,0 +1,37 @@
+.chat-history-row {
+  min-width: 0;
+}
+
+.chat-history-row > .flex-grow-1 {
+  min-width: 0;
+}
+
+.chat-history-delete {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.chat-history-row:hover .chat-history-delete,
+.chat-history-row:focus-within .chat-history-delete {
+  opacity: 1;
+  visibility: visible;
+}
+
+.chat-history-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.chat-history-modal {
+  max-width: 440px;
+}
+
+@media (hover: none) {
+  .chat-history-delete {
+    opacity: 1;
+    visibility: visible;
+  }
+}

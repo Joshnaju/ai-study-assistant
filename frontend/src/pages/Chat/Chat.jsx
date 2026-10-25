@@ -10,14 +10,19 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
+  UserRound,
+  Bot,
+  FileText,
 } from "lucide-react";
-import "./Chat.css";
+
 import {
   getConversations,
   getConversation,
   sendMessage,
   deleteConversation,
 } from "../../services/chatService";
+
+import "./Chat.css";
 
 function getUniqueSources(sources = []) {
   const unique = new Map();
@@ -61,18 +66,14 @@ function getSourceDescription(source) {
 
   const filename = (source.filename || source.file_name || "").toLowerCase();
 
-  if (filename.endsWith(".txt")) {
-    return "Text document";
-  }
-
-  if (filename.endsWith(".docx")) {
-    return "Word document";
-  }
+  if (filename.endsWith(".txt")) return "Text document";
+  if (filename.endsWith(".docx")) return "Word document";
+  if (filename.endsWith(".pdf")) return "PDF document";
 
   return "Document";
 }
 
-const formatDate = (dateString) => {
+function formatDate(dateString) {
   if (!dateString) return "";
 
   const date = new Date(dateString);
@@ -86,7 +87,7 @@ const formatDate = (dateString) => {
     minute: "2-digit",
     hour12: true,
   });
-};
+}
 
 function Chat() {
   const [question, setQuestion] = useState("");
@@ -103,43 +104,9 @@ function Chat() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const handleDeleteConversation = async () => {
-    if (!deleteTarget || deleteLoading) return;
-
-    setDeleteLoading(true);
-
-    try {
-      await deleteConversation(deleteTarget.id);
-
-      // Remove only the deleted conversation from history
-      setConversations((prev) =>
-        prev.filter((chat) => String(chat.id) !== String(deleteTarget.id)),
-      );
-
-      // If the deleted conversation is currently open, start a new chat
-      if (String(conversationId) === String(deleteTarget.id)) {
-        handleNewChat();
-      }
-
-      setDeleteTarget(null);
-    } catch (error) {
-      console.error(
-        "Error deleting conversation:",
-        error.response?.data || error.message,
-      );
-      setError("Failed to delete conversation. Please try again.");
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   const fetchConversations = useCallback(async () => {
-    console.log("Fetching chat history...");
-
     try {
       const data = await getConversations();
-
-      console.log("Chat history API response:", data);
 
       const list = Array.isArray(data)
         ? data
@@ -151,7 +118,6 @@ function Chat() {
     } catch (err) {
       console.error(
         "Chat history API failed:",
-        err.response?.status,
         err.response?.data || err.message,
       );
     } finally {
@@ -205,7 +171,7 @@ function Chat() {
 
     setError("");
 
-    // Display the user's question immediately.
+    // Show the user's message immediately.
     setMessages((previous) => [
       ...previous,
       {
@@ -249,6 +215,35 @@ function Chat() {
     }
   };
 
+  const handleDeleteConversation = async () => {
+    if (!deleteTarget || deleteLoading) return;
+
+    setDeleteLoading(true);
+
+    try {
+      await deleteConversation(deleteTarget.id);
+
+      setConversations((previous) =>
+        previous.filter((chat) => String(chat.id) !== String(deleteTarget.id)),
+      );
+
+      if (String(conversationId) === String(deleteTarget.id)) {
+        handleNewChat();
+      }
+
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error(
+        "Error deleting conversation:",
+        err.response?.data || err.message,
+      );
+
+      setError("Failed to delete conversation. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const toggleSources = (messageKey) => {
     setExpandedSources((previous) => ({
       ...previous,
@@ -257,90 +252,106 @@ function Chat() {
   };
 
   return (
-    <div className="study-chat">
-      <div className="chat-page-header">
-        <div className="chat-page-title">
+    <div className="study-chat container-fluid p-0 d-flex flex-column">
+      {/* Chat header */}
+      <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap bg-white border-bottom px-3 px-md-4 py-3">
+        <div className="d-flex align-items-center gap-3">
           <button
             type="button"
-            className="chat-icon-button history-toggle"
+            className="btn btn-light border d-flex align-items-center justify-content-center"
             onClick={() => setHistoryOpen((open) => !open)}
             title={historyOpen ? "Hide history" : "Show history"}
             aria-label={historyOpen ? "Hide history" : "Show history"}
           >
             {historyOpen ? (
-              <PanelLeftClose size={19} />
+              <PanelLeftClose size={19} className="text-primary" />
             ) : (
-              <PanelLeftOpen size={19} />
+              <PanelLeftOpen size={19} className="text-primary" />
             )}
           </button>
 
           <div>
-            <h4>Study Assistant</h4>
-            <p>Ask questions about your uploaded documents</p>
+            <h5 className="fw-bold mb-1" style={{ color: "#142A40" }}>
+              Study Assistant
+            </h5>
+            <p className="small text-secondary mb-0">
+              Ask questions about your uploaded documents
+            </p>
           </div>
         </div>
 
         <button
           type="button"
-          className="chat-new-button"
+          className="btn btn-primary d-flex align-items-center gap-2"
           onClick={handleNewChat}
           disabled={loading}
         >
           <Plus size={17} />
-          <span>New Chat</span>
+          New Chat
         </button>
       </div>
 
-      <div className="chat-layout">
+      {/* Main chat layout */}
+      <div className="chat-layout d-flex flex-grow-1">
+        {/* Chat history sidebar */}
         {historyOpen && (
-          <aside className="chat-history">
-            <div className="chat-history-heading">
-              <h6>Chat History</h6>
-              <span>{conversations.length}</span>
+          <aside className="chat-history bg-white border-end p-3">
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <h6 className="fw-bold mb-0">Chat History</h6>
+              <span className="badge text-bg-light border">
+                {conversations.length}
+              </span>
             </div>
 
             <button
               type="button"
-              className="chat-history-new"
+              className="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 mb-3"
               onClick={handleNewChat}
               disabled={loading}
             >
-              <Plus size={17} />
+              <Plus size={16} />
               New conversation
             </button>
 
             <div className="chat-history-list">
               {historyLoading ? (
-                <div className="chat-history-empty">Loading history...</div>
+                <div className="text-secondary small text-center py-4">
+                  <span className="spinner-border spinner-border-sm me-2" />
+                  Loading history...
+                </div>
               ) : conversations.length === 0 ? (
-                <div className="chat-history-empty">
-                  <MessageSquare size={23} />
-                  <p>No conversations yet</p>
+                <div className="text-center text-secondary py-4">
+                  <MessageSquare size={25} className="mb-2" />
+                  <p className="small mb-0">No conversations yet</p>
                 </div>
               ) : (
                 conversations.map((conversation) => (
                   <div
                     key={conversation.id}
-                    className={`chat-history-item ${
+                    className={`chat-history-item d-flex align-items-center rounded-3 mb-2 ${
                       String(conversationId) === String(conversation.id)
-                        ? "active"
+                        ? "active bg-primary bg-opacity-10"
                         : ""
                     }`}
                   >
                     <button
                       type="button"
-                      className="chat-history-open-btn"
+                      className="btn flex-grow-1 text-start d-flex align-items-start gap-2 py-2 px-2 border-0"
                       onClick={() => handleOpenConversation(conversation.id)}
                       disabled={loading}
                     >
-                      <MessageSquare size={17} />
+                      {/* ............. */}
+                      <MessageSquare
+                        size={15}
+                        className="mt-1 flex-shrink-0 text-primary"
+                      />
 
                       <span className="chat-history-item-text">
-                        <span className="chat-history-item-title">
+                        <span className="d-block small fw-semibold text-dark">
                           {conversation.title || "New Chat"}
                         </span>
 
-                        <span className="conversation-date">
+                        <span className="d-block text-secondary chat-date">
                           {formatDate(conversation.updated_at)}
                         </span>
                       </span>
@@ -348,12 +359,13 @@ function Chat() {
 
                     <button
                       type="button"
-                      className="delete-conversation-btn"
+                      className="btn btn-sm border-0 text-danger me-1 chat-delete-btn"
                       title="Delete conversation"
+                      aria-label="Delete conversation"
                       onClick={() => setDeleteTarget(conversation)}
                       disabled={deleteLoading}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 ))
@@ -362,17 +374,23 @@ function Chat() {
           </aside>
         )}
 
-        <main className="chat-main">
-          <div className="chat-messages">
+        {/* Conversation area */}
+        <main className="chat-main flex-grow-1 d-flex flex-column">
+          <div className="chat-messages flex-grow-1 p-3 p-md-4">
             {messages.length === 0 && !loading && (
-              <div className="chat-welcome">
-                <div className="chat-welcome-icon">
+              <div className="text-center text-secondary chat-welcome">
+                <div
+                  className="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary mb-3"
+                  style={{ width: 60, height: 60 }}
+                >
                   <MessageSquare size={28} />
                 </div>
 
-                <h5>What would you like to learn?</h5>
+                <h5 className="fw-bold text-dark">
+                  What would you like to learn?
+                </h5>
 
-                <p>
+                <p className="small mx-auto chat-welcome-description">
                   Ask a question about your uploaded study documents to get an
                   answer with sources.
                 </p>
@@ -382,6 +400,7 @@ function Chat() {
             {messages.map((message, index) => {
               const messageKey = message.id ?? index;
               const isUser = message.role === "user";
+
               const sources = isUser
                 ? []
                 : getUniqueSources(message.sources || []);
@@ -391,20 +410,42 @@ function Chat() {
               return (
                 <div
                   key={messageKey}
-                  className={`chat-message-row ${
+                  className={`chat-message-row d-flex gap-2 gap-md-3 mb-4 ${
                     isUser ? "user-row" : "assistant-row"
                   }`}
                 >
+                  {/* User / AI avatar */}
                   <div
-                    className={`chat-message-bubble ${
-                      isUser ? "user-bubble" : "assistant-bubble"
+                    className={`chat-avatar rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ${
+                      isUser
+                        ? "bg-primary bg-opacity-10 text-primary"
+                        : "text-white"
+                    }`}
+                    style={
+                      isUser
+                        ? { width: 38, height: 38 }
+                        : {
+                            width: 38,
+                            height: 38,
+                            backgroundColor: "#142A40",
+                          }
+                    }
+                    title={isUser ? "You" : "AI Assistant"}
+                  >
+                    {isUser ? <UserRound size={20} /> : <Bot size={20} />}
+                  </div>
+
+                  {/* Message bubble */}
+                  <div
+                    className={`chat-message-bubble rounded-4 p-3 ${
+                      isUser
+                        ? "user-bubble bg-primary bg-opacity-10"
+                        : "assistant-bubble bg-white border"
                     }`}
                   >
                     <div className="chat-message-content">
                       {isUser ? (
-                        <div className="user-message-text">
-                          {message.content}
-                        </div>
+                        <div className="text-dark">{message.content}</div>
                       ) : (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {message.content}
@@ -412,11 +453,12 @@ function Chat() {
                       )}
                     </div>
 
+                    {/* Sources */}
                     {!isUser && sources.length > 0 && (
-                      <div className="chat-sources">
+                      <div className="border-top mt-3 pt-2">
                         <button
                           type="button"
-                          className="chat-sources-toggle"
+                          className="btn btn-sm btn-link text-decoration-none p-0 d-flex align-items-center gap-2"
                           onClick={() => toggleSources(messageKey)}
                           aria-expanded={isExpanded}
                         >
@@ -426,13 +468,13 @@ function Chat() {
                             <ChevronRight size={17} />
                           )}
 
-                          <i className="bi bi-journal-text"></i>
+                          <FileText size={16} />
 
                           <span>Sources ({sources.length})</span>
                         </button>
 
                         {isExpanded && (
-                          <div className="chat-source-files">
+                          <div className="mt-3 d-flex flex-column gap-2">
                             {sources.map((source, sourceIndex) => {
                               const filename =
                                 source.filename ||
@@ -441,23 +483,25 @@ function Chat() {
 
                               return (
                                 <div
-                                  className="chat-source-file"
-                                  key={`${source.document_id ?? filename}-${sourceIndex}`}
+                                  className="d-flex align-items-start gap-2 rounded-3 bg-light p-2"
+                                  key={`${
+                                    source.document_id ?? filename
+                                  }-${sourceIndex}`}
                                 >
                                   <i
                                     className={`bi ${getFileIconClass(
                                       filename,
-                                    )}`}
-                                  ></i>
+                                    )} fs-5`}
+                                  />
 
-                                  <div className="chat-source-file-info">
-                                    <span className="chat-source-filename">
+                                  <div className="min-w-0">
+                                    <div className="small fw-semibold text-break">
                                       {filename}
-                                    </span>
+                                    </div>
 
-                                    <span className="chat-source-description">
+                                    <div className="small text-secondary">
                                       {getSourceDescription(source)}
-                                    </span>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -471,28 +515,52 @@ function Chat() {
               );
             })}
 
+            {/* Assistant loading indicator */}
             {loading && (
-              <div className="chat-message-row assistant-row">
-                <div className="chat-message-bubble assistant-bubble chat-loading">
-                  <span className="loading-dot"></span>
-                  <span className="loading-dot"></span>
-                  <span className="loading-dot"></span>
-                  <span className="loading-text">Preparing your answer...</span>
+              <div className="chat-message-row assistant-row d-flex gap-2 gap-md-3 mb-4">
+                <div
+                  className="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    backgroundColor: "#142A40",
+                  }}
+                >
+                  <Bot size={20} />
+                </div>
+
+                <div className="bg-white border rounded-4 p-3 text-secondary small">
+                  <span className="spinner-border spinner-border-sm me-2" />
+                  Preparing your answer...
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="chat-error" role="alert">
-                <i className="bi bi-exclamation-circle me-2"></i>
-                {error}
+              <div
+                className="alert alert-danger d-flex align-items-start gap-2"
+                role="alert"
+              >
+                <i className="bi bi-exclamation-circle mt-1" />
+                <div className="flex-grow-1">{error}</div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Dismiss error"
+                  onClick={() => setError("")}
+                />
               </div>
             )}
           </div>
 
-          <form className="chat-input-area" onSubmit={handleSubmit}>
-            <div className="chat-input-wrapper">
+          {/* Message input */}
+          <form
+            className="chat-input-area bg-white border-top p-3 p-md-4"
+            onSubmit={handleSubmit}
+          >
+            <div className="chat-input-wrapper d-flex align-items-end gap-2 rounded-4 border bg-white p-2">
               <textarea
+                className="form-control border-0 shadow-none"
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="Ask something about your documents..."
@@ -500,7 +568,11 @@ function Chat() {
                 aria-label="Your question"
                 disabled={loading}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
                     event.preventDefault();
                     event.currentTarget.form?.requestSubmit();
                   }
@@ -509,22 +581,28 @@ function Chat() {
 
               <button
                 type="submit"
-                className="chat-send-button"
+                className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
                 disabled={loading || !question.trim()}
                 aria-label="Send message"
                 title="Send message"
+                style={{ width: 42, height: 42 }}
               >
                 <Send size={18} />
               </button>
             </div>
+
+            <p className="text-center text-secondary small mt-2 mb-0">
+              AI-generated answers may not always be accurate. Verify important
+              information against your documents.
+            </p>
           </form>
         </main>
       </div>
 
-      {/* Delete selected conversation confirmation popup */}
+      {/* Delete confirmation modal */}
       {deleteTarget && (
         <div
-          className="chat-confirm-overlay"
+          className="chat-modal-backdrop d-flex align-items-center justify-content-center p-3"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !deleteLoading) {
               setDeleteTarget(null);
@@ -532,22 +610,31 @@ function Chat() {
           }}
         >
           <div
-            className="chat-confirm-modal"
+            className="bg-white rounded-4 shadow p-4 w-100 chat-delete-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-chat-title"
           >
-            <h3 id="delete-chat-title">Delete Conversation?</h3>
-            <p>
-              Are you sure you want to delete{" "}
-              <strong>{deleteTarget.title || "this conversation"}</strong>?
-              This action cannot be undone.
-            </p>
+            <div className="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <h5 id="delete-chat-title" className="fw-bold mb-2">
+                  Delete Conversation?
+                </h5>
 
-            <div className="chat-confirm-actions">
+                <p className="text-secondary small mb-0">
+                  Are you sure you want to delete{" "}
+                  <strong>{deleteTarget.title || "this conversation"}</strong>?
+                  <span className="d-block text-muted fw-semibold fst-italic mt-2">
+                    This action cannot be undone.
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="d-flex justify-content-center gap-2 mt-4">
               <button
                 type="button"
-                className="chat-cancel-btn"
+                className="btn btn-outline-secondary"
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleteLoading}
               >
@@ -556,10 +643,13 @@ function Chat() {
 
               <button
                 type="button"
-                className="delete-confirm-btn"
+                className="btn btn-danger d-flex align-items-center gap-2"
                 onClick={handleDeleteConversation}
                 disabled={deleteLoading}
               >
+                {deleteLoading && (
+                  <span className="spinner-border spinner-border-sm" />
+                )}
                 {deleteLoading ? "Deleting..." : "Delete"}
               </button>
             </div>
@@ -567,7 +657,6 @@ function Chat() {
         </div>
       )}
     </div>
-
   );
 }
 
