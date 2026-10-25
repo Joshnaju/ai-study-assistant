@@ -1,0 +1,9 @@
+.mcq-spin {
+  animation: mcq-spin 1s linear infinite;
+}
+
+@keyframes mcq-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

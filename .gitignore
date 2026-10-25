@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+myvirtualenv/
+.myvirtualenv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# React / Node.js
+node_modules/
+dist/
+build/
+
+# Django
+db.sqlite3
+media/
+
+# IDE
+.vscode/
+
+# Environment files
+frontend/.env
+frontend/.env.*
+
+# ChromaDB
+chroma_db/
+backend/chroma_db/
+
+# Django uploaded files
+media/
+backend/media/
+
+# IDE
+.vscode/
