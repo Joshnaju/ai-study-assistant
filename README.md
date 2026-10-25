@@ -16,3 +16,5 @@
 <img width="1920" height="3262" alt="mcq_page1" src="https://github.com/user-attachments/assets/0e08848a-87f2-4983-b608-e713ca92120a" />
 <img width="1920" height="4191" alt="mcq_page2" src="https://github.com/user-attachments/assets/01a38c20-5e9e-4129-86bb-4abe7f2039da" />
 
+### Chat History Page
+<img width="958" height="431" alt="chat_history_page" src="https://github.com/user-attachments/assets/c30ab367-29ac-4a52-aaed-48cd9dda76f5" />
