@@ -499,15 +499,6 @@ function Documents() {
             <div className="delete-modal-actions">
               <button
                 type="button"
-                className="delete-cancel-btn"
-                onClick={() => setDocumentToDelete(null)}
-                disabled={deletingId !== null}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
                 className="delete-confirm-btn"
                 onClick={confirmDelete}
                 disabled={deletingId !== null}
@@ -523,6 +514,14 @@ function Documents() {
                 ) : (
                   <>Delete</>
                 )}
+              </button>
+              <button
+                type="button"
+                className="delete-cancel-btn"
+                onClick={() => setDocumentToDelete(null)}
+                disabled={deletingId !== null}
+              >
+                Cancel
               </button>
             </div>
           </div>

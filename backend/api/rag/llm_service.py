@@ -1,5 +1,6 @@
 from openai import OpenAI
 from django.conf import settings
+import json
 
 def rewrite_followup_query(query, conversation_history=None):
     """
@@ -134,3 +135,67 @@ def generate_mcq_answer(prompt):
         raise ValueError("The AI returned an empty MCQ response.")
 
     return answer
+
+
+#for chat conversation
+
+def generate_chat_mcq_answer(prompt):
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    response = client.responses.create(
+        model=settings.OPENAI_MODEL,
+        instructions=(
+            "You are an educational MCQ generator. "
+            "Return only a valid JSON array, without Markdown "
+            "code fences or additional text. "
+            "Each item must contain: question, options, "
+            "correct_answer, and explanation. "
+            "The options object must have keys A, B, C, and D. "
+            "correct_answer must be one of A, B, C, or D."
+        ),
+        input=prompt,
+    )
+
+    answer = response.output_text.strip()
+
+    if not answer:
+        raise ValueError("The MCQ generator returned an empty response.")
+
+    try:
+        questions = json.loads(answer)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "The MCQ generator returned invalid JSON."
+        ) from exc
+
+    if not isinstance(questions, list):
+        raise ValueError("The MCQ response must be a JSON array.")
+
+    for question in questions:
+        if not isinstance(question, dict):
+            raise ValueError("Invalid question format.")
+
+        if not all(
+            field in question
+            for field in (
+                "question",
+                "options",
+                "correct_answer",
+                "explanation",
+            )
+        ):
+            raise ValueError("An MCQ is missing required fields.")
+
+        if not isinstance(question["options"], dict):
+            raise ValueError("MCQ options must be an object.")
+
+        if not all(
+            option in question["options"]
+            for option in ("A", "B", "C", "D")
+        ):
+            raise ValueError("Each MCQ must have four options.")
+
+        if question["correct_answer"] not in ("A", "B", "C", "D"):
+            raise ValueError("Invalid correct answer.")
+
+    return questions

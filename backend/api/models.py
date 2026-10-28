@@ -55,7 +55,7 @@ class ChatMessage(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     sources = models.JSONField(default=list, blank=True)
-
+    mcqs = models.JSONField(default=list, blank=True)
     class Meta:
         ordering = ["created_at", "id"]
 

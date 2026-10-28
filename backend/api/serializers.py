@@ -109,6 +109,9 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 class DocumentSerializer(serializers.ModelSerializer):
+    # SerializerMethodField() is a read-only field used to add custom or calculated 
+    # data to a serializer's output.
+    # We define a method named get_<field_name>(self, obj) to return its value.
     file_size = serializers.SerializerMethodField()
 
     class Meta:
@@ -158,6 +161,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "role",
             "content",
             "sources",
+            "mcqs",
             "created_at",
         ]
         

@@ -68,7 +68,13 @@ def index_document(document_id, user_id, filename, pages):
 
 
 def search_relevant_chunks(query, user_id, n_results=4):
-    """Return relevant chunks belonging only to this user."""
+    """
+    Return relevant chunks belonging only to this user.
+    Ignore chunks whose distance exceeds the configured threshold.
+    """
+
+    MAX_DISTANCE = 0.70
+
     result = collection.query(
         query_texts=[query],
         n_results=n_results,
@@ -85,6 +91,14 @@ def search_relevant_chunks(query, user_id, n_results=4):
     for text, metadata, distance in zip(
         texts, metadatas, distances
     ):
+        # Skip results without a usable distance.
+        if distance is None:
+            continue
+
+        # Skip results that are not sufficiently similar.
+        if distance > MAX_DISTANCE:
+            continue
+
         chunks.append({
             "text": text,
             "document_id": metadata.get("document_id"),

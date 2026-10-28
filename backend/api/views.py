@@ -3,7 +3,6 @@ import logging
 from openai import OpenAIError
 from rest_framework import generics, status,viewsets
 from rest_framework.response import Response
-from rest_framework.views import APIView, settings
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
@@ -12,7 +11,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from pathlib import Path
 
-from api.rag.llm_service import generate_mcq_answer, generate_rag_answer, rewrite_followup_query
+from api.rag.llm_service import generate_chat_mcq_answer, generate_mcq_answer, generate_rag_answer, rewrite_followup_query
+from api.services.agent_service import run_agent
 from .models import Document
 
 from .serializers import DocumentSerializer, LoginSerializer
@@ -26,7 +26,8 @@ from .models import ChatConversation,ChatMessage
 from .serializers import ChatConversationSerializer
 import re
 import json
-
+from django.conf import settings
+from rest_framework.views import APIView
 logger = logging.getLogger(__name__)
 
 class RegisterView(generics.CreateAPIView):
@@ -209,6 +210,57 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+def search_notes_handler(query, user_id):
+    chunks = search_relevant_chunks(
+        query=query,
+        user_id=user_id,
+        n_results=4,
+    )
+
+    logger.info(
+        "Filtered RAG chunks: %s",
+        len(chunks),
+    )
+
+    return {
+        "chunks": chunks,
+        "count": len(chunks),
+    }
+
+
+def create_summary_handler(topic, content):
+    answer = generate_rag_answer(
+        query=f"Create clear, structured revision notes about: {topic}",
+        chunks=[{"text": content}],
+    )
+
+    return {"summary": answer}
+
+
+def generate_mcqs_handler(topic, content, count):
+    count = max(1, min(int(count), 10))
+
+    prompt = f"""
+Generate exactly {count} multiple-choice questions about {topic}
+using only the study notes below.
+
+Study notes:
+{content}
+
+Return a JSON array. Each question must contain:
+- question: the question text
+- options: an object with A, B, C, D
+- correct_answer: one of A, B, C, D
+- explanation: a short explanation
+
+Do not include Markdown code fences.
+Do not invent facts outside the study notes.
+"""
+
+    questions = generate_chat_mcq_answer(prompt)
+
+    return {"questions": questions}
+
 class RAGSearchView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -238,7 +290,11 @@ class RAGSearchView(APIView):
                     id=conversation_id,
                     owner=request.user,
                 )
-            except (ChatConversation.DoesNotExist, ValueError, TypeError):
+            except (
+                ChatConversation.DoesNotExist,
+                ValueError,
+                TypeError,
+            ):
                 return Response(
                     {"error": "Conversation not found."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -250,8 +306,7 @@ class RAGSearchView(APIView):
             )
 
         try:
-            # 3. Retrieve recent conversation history BEFORE
-            # saving the current question.
+            # 3. Load previous messages before saving the current question.
             previous_messages = list(
                 ChatMessage.objects.filter(
                     conversation=conversation,
@@ -259,8 +314,6 @@ class RAGSearchView(APIView):
                 )
                 .order_by("-created_at", "-id")[:10]
             )
-
-            # Restore chronological order.
             previous_messages.reverse()
 
             conversation_history = [
@@ -271,56 +324,77 @@ class RAGSearchView(APIView):
                 for message in previous_messages
             ]
 
-            # 4. Save the current question.
+            # 4. Save the student's question.
             ChatMessage.objects.create(
                 conversation=conversation,
                 role="user",
                 content=query,
             )
-            # 1. Rewrite the follow-up question using conversation history.
-            search_query = rewrite_followup_query(
+
+            generated_mcqs = []
+
+            def handle_generate_mcqs(topic, content, count):
+                result = generate_mcqs_handler(
+                    topic=topic,
+                    content=content,
+                    count=count,
+                )
+
+                generated_mcqs.extend(result["questions"])
+                return result
+
+            # 5. Run the agent with user-scoped tool handlers.
+            agent_result = run_agent(
                 query=query,
+                tool_handlers={
+                    "search_notes": lambda query: search_notes_handler(
+                        query=query,
+                        user_id=request.user.id,
+                    ),
+                    "create_summary": create_summary_handler,
+                    "generate_mcqs": handle_generate_mcqs,
+                },
                 conversation_history=conversation_history,
             )
-            # 2. Search ChromaDB using the rewritten question.
-            chunks = search_relevant_chunks(
-                query=search_query,
-                user_id=request.user.id,
-                n_results=4,
+
+            answer = agent_result.get(
+                "answer",
+                "I could not generate an answer. Please try again.",
             )
 
-            # 3. Generate an answer to the original question.
-            answer = generate_rag_answer(
-                query=query,
-                chunks=chunks,
-                conversation_history=conversation_history,
-            )
+            # 6. Get the chunks tracked by run_agent().
+            raw_results = agent_result.get("results", [])
 
-            # 7. Prepare source information for the frontend.
-            results = [
-                {
+            web_sources = agent_result.get("web_sources", [])
+            # Format source information for the frontend.
+
+            results = []
+
+            for chunk in raw_results:
+                if not isinstance(chunk, dict):
+                    continue
+
+                results.append({
                     "text": chunk.get("text", ""),
                     "document_id": chunk.get("document_id"),
-                    "filename": chunk.get("filename"),
+                    "filename": chunk.get("filename", "Uploaded document"),
                     "chunk_index": chunk.get("chunk_index"),
                     "page_number": chunk.get("page_number"),
                     "distance": chunk.get("distance"),
-                }
-                for chunk in chunks
-            ]
+                })
+            # 7. Save the assistant's response and sources.
 
-            # 8. Save the assistant's answer and sources.
             ChatMessage.objects.create(
                 conversation=conversation,
                 role="assistant",
                 content=answer,
                 sources=results,
-            )
+                mcqs=generated_mcqs,
+             )
 
-            # 9. Update the conversation timestamp.
             conversation.save(update_fields=["updated_at"])
 
-            # 10. Return the response expected by React.
+            # 8. Return the response to React.
             return Response(
                 {
                     "conversation_id": conversation.id,
@@ -328,18 +402,18 @@ class RAGSearchView(APIView):
                     "answer": answer,
                     "results": results,
                     "count": len(results),
+                    "actions": agent_result.get("actions", []),
+                    "web_sources": web_sources,
+                    "mcqs": generated_mcqs,
                 },
                 status=status.HTTP_200_OK,
             )
-
         except OpenAIError:
-            logging.getLogger(__name__).exception(
-                "OpenAI API request failed"
-            )
+            logger.exception("OpenAI agent request failed")
             return Response(
                 {
                     "error": (
-                        "The AI service could not generate an answer. "
+                        "The AI service could not process your request. "
                         "Please try again."
                     )
                 },
@@ -347,9 +421,7 @@ class RAGSearchView(APIView):
             )
 
         except Exception:
-            logging.getLogger(__name__).exception(
-                "RAG chat request failed"
-            )
+            logger.exception("Agent chat request failed")
             return Response(
                 {"error": "Unable to process your question."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -364,7 +436,7 @@ class ChatConversationListCreateView(generics.ListCreateAPIView):
             owner=self.request.user
         ).order_by("-updated_at")
 
-    def perform_create(self, serializer):
+    def perform_create(self, serializer): #post or create
         serializer.save(owner=self.request.user)
 
 class ChatConversationDetailView(generics.RetrieveDestroyAPIView):
@@ -375,8 +447,6 @@ class ChatConversationDetailView(generics.RetrieveDestroyAPIView):
         return ChatConversation.objects.filter(
             owner=self.request.user
         )
-
-
 class SummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -625,7 +695,6 @@ Study material:
         # 7. Generate and parse the MCQs
         try:
             result = generate_mcq_answer(prompt)
-            print("result:::::::::::::::::::;",result)
             # Support common service return formats.
             if isinstance(result, dict):
                 result = result.get(
@@ -768,3 +837,4 @@ Study material:
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
